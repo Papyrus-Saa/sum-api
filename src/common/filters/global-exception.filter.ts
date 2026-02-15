@@ -7,9 +7,25 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+interface CustomHttpExceptionResponse {
+  message?: string;
+  details?: unknown;
+}
+
+interface ResponseObject {
+  requestId?: string;
+  error: {
+    code: number;
+    message: string;
+    details?: unknown;
+  };
+  timestamp: string;
+  path: string;
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -17,22 +33,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
-    let details: any = undefined;
+    let details: unknown = undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      message =
-        typeof exceptionResponse === 'object'
-          ? (exceptionResponse as any).message || 'HTTP Exception'
-          : exception.message;
-      details = (exceptionResponse as any).details;
+      if (typeof exceptionResponse === 'object') {
+        const customResponse = exceptionResponse as CustomHttpExceptionResponse;
+        message = customResponse.message || 'HTTP Exception';
+        details = customResponse.details;
+      } else {
+        message = exception.message;
+      }
     } else if (exception instanceof Error) {
       message = exception.message;
     }
 
     // Build response object, only including details if it exists
-    const responseObj: any = {
+    const responseObj: ResponseObject = {
       requestId,
       error: {
         code: status,

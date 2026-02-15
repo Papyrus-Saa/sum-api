@@ -4,7 +4,7 @@ import { ITireSize, ICreateTireSizeDto } from './entities';
 
 @Injectable()
 export class TireSizeRepository {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async findByNormalized(normalized: string): Promise<ITireSize | null> {
     return this.prisma.tireSize.findUnique({
@@ -26,4 +26,3 @@ export class TireSizeRepository {
     return this.prisma.tireSize.findMany();
   }
 }
-

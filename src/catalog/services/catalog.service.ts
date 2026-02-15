@@ -11,7 +11,7 @@ export class CatalogService {
     private readonly tireSizeRepository: TireSizeRepository,
     private readonly tireCodeRepository: TireCodeRepository,
     private readonly tireVariantRepository: TireVariantRepository,
-  ) { }
+  ) {}
 
   // TireSize operations
   /**

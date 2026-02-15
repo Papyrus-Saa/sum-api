@@ -40,9 +40,11 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.TIRE_SIZE_NOT_FOUND]: 'Tire size not found',
   [ErrorCode.TIRE_SIZE_ALREADY_EXISTS]: 'Tire size already exists',
   [ErrorCode.TIRE_SIZE_ALREADY_MAPPED]: 'Tire size already has a mapping',
-  [ErrorCode.INVALID_TIRE_SIZE_FORMAT]: 'Invalid tire size format. Expected: XXX/XXRXX (e.g., 205/55R16)',
+  [ErrorCode.INVALID_TIRE_SIZE_FORMAT]:
+    'Invalid tire size format. Expected: XXX/XXRXX (e.g., 205/55R16)',
   [ErrorCode.VARIANT_NOT_FOUND]: 'Variant not found',
-  [ErrorCode.INVALID_VARIANT_FORMAT]: 'Invalid variant format. Expected: XXV (e.g., 91V)',
+  [ErrorCode.INVALID_VARIANT_FORMAT]:
+    'Invalid variant format. Expected: XXV (e.g., 91V)',
   [ErrorCode.MISSING_REQUIRED_FIELD]: 'Missing required field',
   [ErrorCode.INVALID_INPUT]: 'Invalid input',
   [ErrorCode.INCOMPLETE_PARAMETERS]: 'Incomplete parameters',

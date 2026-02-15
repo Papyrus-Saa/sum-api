@@ -8,4 +8,4 @@ import { CatalogModule } from '../catalog/catalog.module';
   providers: [LookupService],
   controllers: [LookupController],
 })
-export class LookupModule { }
+export class LookupModule {}

@@ -1,2 +1,2 @@
 // Placeholder for shared utilities.
-export { };
+export {};

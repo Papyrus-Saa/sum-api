@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CatalogService } from '../../catalog/services/catalog.service';
 import { TireNormalizer } from '../../catalog/domain/tire-normalizer';
 
@@ -9,14 +14,16 @@ export class LookupService {
   constructor(
     private readonly catalogService: CatalogService,
     private readonly tireNormalizer: TireNormalizer,
-  ) { }
+  ) {}
 
   /**
    * Search by tire code (e.g., "100")
    * Returns: { code, sizeNormalized, sizeRaw, variants? }
    */
   async findByCode(code: string, options?: { li?: string; si?: string }) {
-    this.logger.debug(`Lookup by code: code=${code}, li=${options?.li}, si=${options?.si}`);
+    this.logger.debug(
+      `Lookup by code: code=${code}, li=${options?.li}, si=${options?.si}`,
+    );
     const { code: resolvedCode, variant } = this.resolveVariantInput(
       code,
       undefined,
@@ -29,9 +36,8 @@ export class LookupService {
     }
 
     // Optimized: Fetch code and then size + variants in parallel
-    const tireCode = await this.catalogService.getTireCodeByPublicCode(
-      resolvedCode,
-    );
+    const tireCode =
+      await this.catalogService.getTireCodeByPublicCode(resolvedCode);
     if (!tireCode) {
       this.logger.warn(`Tire code not found: ${resolvedCode}`);
       throw new NotFoundException(`Tire code "${resolvedCode}" not found`);
@@ -58,7 +64,9 @@ export class LookupService {
       );
 
       if (matched) {
-        this.logger.log(`Lookup successful: code=${resolvedCode}, variant=${variant?.loadIndex}${variant?.speedIndex}`);
+        this.logger.log(
+          `Lookup successful: code=${resolvedCode}, variant=${variant?.loadIndex}${variant?.speedIndex}`,
+        );
         return {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
@@ -69,7 +77,9 @@ export class LookupService {
           },
         };
       } else {
-        this.logger.warn(`Variant not found: code=${resolvedCode}, variant=${variant?.loadIndex}${variant?.speedIndex}`);
+        this.logger.warn(
+          `Variant not found: code=${resolvedCode}, variant=${variant?.loadIndex}${variant?.speedIndex}`,
+        );
         return {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
@@ -93,7 +103,9 @@ export class LookupService {
    * Returns: { code, sizeNormalized, sizeRaw, variants? }
    */
   async findBySize(size: string, options?: { li?: string; si?: string }) {
-    this.logger.debug(`Lookup by size: size=${size}, li=${options?.li}, si=${options?.si}`);
+    this.logger.debug(
+      `Lookup by size: size=${size}, li=${options?.li}, si=${options?.si}`,
+    );
     const { size: resolvedSize, variant } = this.resolveVariantInput(
       undefined,
       size,
@@ -106,16 +118,17 @@ export class LookupService {
     }
     const normalized = this.tireNormalizer.normalize(resolvedSize);
     this.logger.debug(`Normalized size: ${resolvedSize} -> ${normalized}`);
-    
+
     // Optimized: Fetch size and then code + variants in parallel
-    const tireSize = await this.catalogService.getTireSizeByNormalized(normalized);
+    const tireSize =
+      await this.catalogService.getTireSizeByNormalized(normalized);
     if (!tireSize) {
       this.logger.warn(`Tire size not found: ${normalized}`);
       throw new NotFoundException(`Tire size "${normalized}" not found`);
     }
 
     this.logger.debug(`Found tire size: ${normalized}`);
-    
+
     const [tireCode, variants] = await Promise.all([
       this.catalogService.getTireCodeByTireSizeId(tireSize.id),
       this.catalogService.getVariantsByTireSizeId(tireSize.id),
@@ -123,7 +136,9 @@ export class LookupService {
 
     if (!tireCode) {
       this.logger.error(`No code found for tire size: ${normalized}`);
-      throw new NotFoundException(`No code found for tire size "${normalized}"`);
+      throw new NotFoundException(
+        `No code found for tire size "${normalized}"`,
+      );
     }
 
     if (variant) {
@@ -134,7 +149,9 @@ export class LookupService {
       );
 
       if (matched) {
-        this.logger.log(`Lookup successful: size=${normalized}, variant=${variant.loadIndex}${variant.speedIndex}`);
+        this.logger.log(
+          `Lookup successful: size=${normalized}, variant=${variant.loadIndex}${variant.speedIndex}`,
+        );
         return {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
@@ -145,7 +162,9 @@ export class LookupService {
           },
         };
       } else {
-        this.logger.warn(`Variant not found: size=${normalized}, variant=${variant.loadIndex}${variant.speedIndex}`);
+        this.logger.warn(
+          `Variant not found: size=${normalized}, variant=${variant.loadIndex}${variant.speedIndex}`,
+        );
         return {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
@@ -202,9 +221,10 @@ export class LookupService {
       return { code: resolvedCode, size: resolvedSize, variant: null };
     }
 
-    const variant = this.tireNormalizer.parseVariant(variantToken.toUpperCase());
+    const variant = this.tireNormalizer.parseVariant(
+      variantToken.toUpperCase(),
+    );
 
     return { code: resolvedCode, size: resolvedSize, variant };
   }
 }
-

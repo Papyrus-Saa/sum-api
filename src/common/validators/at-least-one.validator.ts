@@ -7,16 +7,19 @@ import {
 
 @ValidatorConstraint({ name: 'AtLeastOne', async: false })
 export class AtLeastOneConstraint implements ValidatorConstraintInterface {
-  validate(value: any) {
+  validate(value: unknown): boolean {
     if (!value || typeof value !== 'object') {
       return false;
     }
 
-    const fields = Object.values(value).filter((v) => v !== undefined && v !== null && v !== '');
+    const valueObj = value as Record<string, unknown>;
+    const fields = Object.values(valueObj).filter(
+      (v) => v !== undefined && v !== null && v !== '',
+    );
     return fields.length > 0;
   }
 
-  defaultMessage() {
+  defaultMessage(): string {
     return 'At least one field must be provided';
   }
 }

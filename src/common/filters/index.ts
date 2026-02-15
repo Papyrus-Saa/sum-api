@@ -1,2 +1,2 @@
 // Placeholder for HTTP filters.
-export { };
+export {};

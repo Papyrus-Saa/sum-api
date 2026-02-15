@@ -67,7 +67,9 @@ export class TireNormalizer {
    * Parse LI/SI from input like "91V"
    * Returns { loadIndex: 91, speedIndex: 'V' }
    */
-  parseVariant(input: string): { loadIndex: number; speedIndex: string } | null {
+  parseVariant(
+    input: string,
+  ): { loadIndex: number; speedIndex: string } | null {
     if (!input) return null;
 
     const match = input.match(VARIANT_PATTERN);

@@ -6,7 +6,8 @@
 export const TIRE_SIZE_STRICT_PATTERN = /^(\d{3})\/(\d{2})R(\d{2})$/;
 
 /** Pattern for flexible tire size input allowing spaces */
-export const TIRE_SIZE_FLEXIBLE_PATTERN = /^\s*\d{3}\s*\/\s*\d{2}\s*[Rr]\s*\d{2}\s*$/;
+export const TIRE_SIZE_FLEXIBLE_PATTERN =
+  /^\s*\d{3}\s*\/\s*\d{2}\s*[Rr]\s*\d{2}\s*$/;
 
 /** Example tire size format for error messages */
 export const TIRE_SIZE_FORMAT_EXAMPLE = '205/55R16';

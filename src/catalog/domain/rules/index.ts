@@ -1,2 +1,2 @@
 // Placeholder for domain rules.
-export { };
+export {};

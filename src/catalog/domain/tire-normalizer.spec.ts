@@ -16,7 +16,9 @@ describe('TireNormalizer', () => {
     });
 
     it('throws for invalid size format', () => {
-      expect(() => normalizer.normalize('205/55R')).toThrow(BadRequestException);
+      expect(() => normalizer.normalize('205/55R')).toThrow(
+        BadRequestException,
+      );
       expect(() => normalizer.normalize('abc')).toThrow(BadRequestException);
     });
 
@@ -40,7 +42,9 @@ describe('TireNormalizer', () => {
 
     it('returns null for empty input', () => {
       expect(normalizer.parseVariant('')).toBeNull();
-      expect(normalizer.parseVariant(undefined as unknown as string)).toBeNull();
+      expect(
+        normalizer.parseVariant(undefined as unknown as string),
+      ).toBeNull();
     });
   });
 });

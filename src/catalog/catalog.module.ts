@@ -17,4 +17,4 @@ import { TireNormalizer } from './domain/tire-normalizer';
   ],
   exports: [CatalogService, TireNormalizer],
 })
-export class CatalogModule { }
+export class CatalogModule {}

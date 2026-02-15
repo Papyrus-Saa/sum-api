@@ -32,6 +32,8 @@ describe('LookupService', () => {
   beforeEach(() => {
     catalogService = makeCatalogService();
     lookupService = new LookupService(
+      // Mock object for testing - type safety not applicable in test setup
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       catalogService as any,
       new TireNormalizer(),
     );

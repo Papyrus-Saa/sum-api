@@ -1,2 +1,2 @@
 // Placeholder for DTOs.
-export { };
+export {};

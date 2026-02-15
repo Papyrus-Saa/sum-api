@@ -6,4 +6,4 @@ import { HealthService } from './services/health.service';
   providers: [LoggingService, HealthService],
   exports: [LoggingService, HealthService],
 })
-export class ObservabilityModule { }
+export class ObservabilityModule {}

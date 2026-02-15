@@ -15,7 +15,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tireNormalizer: TireNormalizer,
-  ) { }
+  ) {}
 
   /**
    * Create a new tire mapping with code and size
@@ -31,8 +31,12 @@ export class AdminService {
     this.logger.debug(`Creating mapping: code=${codePublic}, size=${sizeRaw}`);
 
     if (!codePublic?.trim() || !sizeRaw?.trim()) {
-      this.logger.warn(`Missing required fields: code=${codePublic}, size=${sizeRaw}`);
-      throw new BadRequestException('Both "codePublic" and "sizeRaw" are required');
+      this.logger.warn(
+        `Missing required fields: code=${codePublic}, size=${sizeRaw}`,
+      );
+      throw new BadRequestException(
+        'Both "codePublic" and "sizeRaw" are required',
+      );
     }
 
     const sizeData = this.tireNormalizer.parseSizeComponents(sizeRaw);
@@ -60,7 +64,9 @@ export class AdminService {
       });
 
       if (existingMapping) {
-        this.logger.warn(`Tire size already mapped: ${sizeData.sizeNormalized}`);
+        this.logger.warn(
+          `Tire size already mapped: ${sizeData.sizeNormalized}`,
+        );
         throw new ConflictException(
           `Tire size "${sizeData.sizeNormalized}" already has a mapping`,
         );
@@ -74,7 +80,9 @@ export class AdminService {
       },
     });
 
-    this.logger.log(`Mapping created: id=${tireCode.id}, code=${tireCode.codePublic}`);
+    this.logger.log(
+      `Mapping created: id=${tireCode.id}, code=${tireCode.codePublic}`,
+    );
 
     return {
       id: tireCode.id,
@@ -99,11 +107,15 @@ export class AdminService {
     id: string,
     input: { codePublic?: string; sizeRaw?: string },
   ) {
-    this.logger.debug(`Updating mapping: id=${id}, input=${JSON.stringify(input)}`);
+    this.logger.debug(
+      `Updating mapping: id=${id}, input=${JSON.stringify(input)}`,
+    );
 
     if (!input.codePublic?.trim() && !input.sizeRaw?.trim()) {
       this.logger.warn(`No fields provided to update mapping: ${id}`);
-      throw new BadRequestException('Provide "codePublic" or "sizeRaw" to update');
+      throw new BadRequestException(
+        'Provide "codePublic" or "sizeRaw" to update',
+      );
     }
 
     const existing = await this.prisma.tireCode.findUnique({
@@ -145,13 +157,17 @@ export class AdminService {
       });
 
       if (sizeConflict && sizeConflict.id !== existing.tireSizeId) {
-        this.logger.warn(`Size conflict during update: ${sizeData.sizeNormalized}`);
+        this.logger.warn(
+          `Size conflict during update: ${sizeData.sizeNormalized}`,
+        );
         throw new ConflictException(
           `Tire size "${sizeData.sizeNormalized}" already exists`,
         );
       }
 
-      this.logger.log(`Size updated: id=${id}, newSize=${sizeData.sizeNormalized}`);
+      this.logger.log(
+        `Size updated: id=${id}, newSize=${sizeData.sizeNormalized}`,
+      );
       updatedSize = await this.prisma.tireSize.update({
         where: { id: existing.tireSizeId },
         data: sizeData,

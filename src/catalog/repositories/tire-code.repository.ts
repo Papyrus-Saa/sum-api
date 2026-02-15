@@ -4,7 +4,7 @@ import { ITireCode, ICreateTireCodeDto } from './entities';
 
 @Injectable()
 export class TireCodeRepository {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async findByCode(code: string): Promise<ITireCode | null> {
     return this.prisma.tireCode.findUnique({

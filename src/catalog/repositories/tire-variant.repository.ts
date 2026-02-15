@@ -18,7 +18,7 @@ export interface ICreateTireVariantDto {
 
 @Injectable()
 export class TireVariantRepository {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async findByTireSizeId(tireSizeId: string): Promise<ITireVariant[]> {
     return this.prisma.tireVariant.findMany({
