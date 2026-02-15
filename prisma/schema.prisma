@@ -1,0 +1,66 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider     = "prisma-client-js"
+  engineType   = "library"
+  moduleFormat = "cjs"
+}
+
+model TireSize {
+  id             String   @id @default(cuid())
+  sizeRaw        String
+  /// Format: XXX/XXRXX (e.g. 205/55R16). Must match regex: ^\d{3}/\d{2}R\d{2}$
+  sizeNormalized String   @unique @db.VarChar(11)
+  width          Int
+  aspectRatio    Int
+  rimDiameter    Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  tireCode     TireCode?
+  tireVariants TireVariant[]
+
+  @@map("tire_sizes")
+}
+
+model TireCode {
+  id         String   @id @default(cuid())
+  codePublic String   @unique
+  tireSizeId String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  tireSize TireSize @relation(fields: [tireSizeId], references: [id], onDelete: Cascade)
+
+  @@map("tire_codes")
+}
+
+model TireVariant {
+  id         String   @id @default(cuid())
+  tireSizeId String
+  loadIndex  Int?
+  speedIndex String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  tireSize TireSize @relation(fields: [tireSizeId], references: [id], onDelete: Cascade)
+
+  @@unique([tireSizeId, loadIndex, speedIndex])
+  @@map("tire_variants")
+}
+
+model SearchLog {
+  id          String   @id @default(cuid())
+  query       String
+  queryType   String // 'code', 'size', 'unknown'
+  resultFound Boolean
+  ipHash      String?
+  createdAt   DateTime @default(now())
+
+  @@map("search_logs")
+}
