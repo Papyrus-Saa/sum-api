@@ -19,7 +19,7 @@ model TireSize {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Relations
+  // Relations - 1:1 relationship: one code per size
   tireCode     TireCode?
   tireVariants TireVariant[]
 
@@ -28,8 +28,8 @@ model TireSize {
 
 model TireCode {
   id         String   @id @default(cuid())
-  codePublic String   @unique
-  tireSizeId String   @unique
+  codePublic String   @unique @default(dbgenerated("nextval('tire_code_seq')::text"))
+  tireSizeId String   @unique // One-to-one: each size has exactly one code
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

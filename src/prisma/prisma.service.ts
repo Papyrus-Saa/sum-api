@@ -8,6 +8,8 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  private readonly pool: Pool;
+
   constructor() {
     const databaseUrl = process.env.DATABASE_URL;
 
@@ -19,11 +21,13 @@ export class PrismaService
       );
     }
 
-    const pool = new Pool({ connectionString: databaseUrl }); // eslint-disable-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+    const pool = new Pool({ connectionString: databaseUrl });
     const adapter = new PrismaPg(pool);
 
     super({ adapter });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    this.pool = pool;
   }
 
   async onModuleInit(): Promise<void> {
@@ -32,5 +36,7 @@ export class PrismaService
 
   async onModuleDestroy(): Promise<void> {
     await this.$disconnect();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    await this.pool.end();
   }
 }
