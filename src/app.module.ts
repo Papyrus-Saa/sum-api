@@ -29,7 +29,7 @@ import { ObservabilityModule } from './observability/observability.module';
     CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
+      useFactory: (configService: ConfigService) => {
         const isTest =
           process.env.NODE_ENV === 'test' ||
           process.env.JEST_WORKER_ID !== undefined;
@@ -40,9 +40,7 @@ import { ObservabilityModule } from './observability/observability.module';
           'redis://localhost:6379';
         return {
           stores: [
-            isTest
-              ? new Keyv()
-              : new Keyv({ store: new KeyvRedis(redisUrl) }),
+            isTest ? new Keyv() : new Keyv({ store: new KeyvRedis(redisUrl) }),
           ],
           ttl: 60 * 60 * 1000,
         };
@@ -75,4 +73,4 @@ import { ObservabilityModule } from './observability/observability.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

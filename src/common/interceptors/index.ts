@@ -1,2 +1,1 @@
-// Placeholder for request/response interceptors.
-export {};
+export { LoggingInterceptor } from './logging.interceptor';

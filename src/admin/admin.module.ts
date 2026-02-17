@@ -12,4 +12,4 @@ import { ObservabilityModule } from '../observability/observability.module';
   providers: [AdminService],
   controllers: [AdminController, AnalyticsController],
 })
-export class AdminModule { }
+export class AdminModule {}
