@@ -1,20 +1,14 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { Request, Response, NextFunction } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 
 async function sum(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const requestId = uuidv4();
-    const reqWithId = req as unknown as Record<string, unknown>;
-    reqWithId.requestId = requestId;
-    res.setHeader('x-request-id', requestId);
-    next();
-  });
+  app.use(requestIdMiddleware);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -23,6 +17,7 @@ async function sum(): Promise<void> {
     }),
   );
   app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
   // Swagger / OpenAPI Configuration
   const config = new DocumentBuilder()
