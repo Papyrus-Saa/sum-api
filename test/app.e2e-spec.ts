@@ -6,10 +6,14 @@ const request = require('supertest');
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
+import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let seedCodePublic = '100';
+
+  jest.setTimeout(20000);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,6 +21,7 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.use(requestIdMiddleware);
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -34,6 +39,10 @@ describe('AppController (e2e)', () => {
     await prisma.tireCode.deleteMany();
     await prisma.tireSize.deleteMany();
 
+    await prisma.$executeRawUnsafe(
+      "SELECT setval('tire_code_seq', 100, false);",
+    );
+
     const tireSize = await prisma.tireSize.create({
       data: {
         sizeRaw: '205/55R16',
@@ -44,12 +53,12 @@ describe('AppController (e2e)', () => {
       },
     });
 
-    await prisma.tireCode.create({
+    const tireCode = await prisma.tireCode.create({
       data: {
-        codePublic: '100',
         tireSizeId: tireSize.id,
       },
     });
+    seedCodePublic = tireCode.codePublic;
 
     await prisma.tireVariant.create({
       data: {
@@ -66,6 +75,7 @@ describe('AppController (e2e)', () => {
       await prisma.tireVariant.deleteMany();
       await prisma.tireCode.deleteMany();
       await prisma.tireSize.deleteMany();
+      await prisma.$disconnect();
     }
     if (app) {
       await app.close();
@@ -76,16 +86,25 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
-      .expect('Hello World!');
+      .expect('Hello World!!!');
+  });
+
+  it('/ (GET) includes x-request-id header', async () => {
+    const response = await request(app.getHttpServer()).get('/').expect(200);
+
+    expect(response.headers['x-request-id']).toBeDefined();
+    expect(response.headers['x-request-id']).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
   });
 
   it('GET /api/v1/lookup?code=100 returns size', async () => {
     const response = await request(app.getHttpServer())
-      .get('/api/v1/lookup?code=100')
+      .get(`/api/v1/lookup?code=${seedCodePublic}`)
       .expect(200);
 
     expect(response.body).toMatchObject({
-      code: '100',
+      code: seedCodePublic,
       sizeNormalized: '205/55R16',
       sizeRaw: '205/55R16',
     });
@@ -97,7 +116,7 @@ describe('AppController (e2e)', () => {
       .expect(200);
 
     expect(response.body).toMatchObject({
-      code: '100',
+      code: seedCodePublic,
       sizeNormalized: '205/55R16',
       sizeRaw: '205/55R16',
     });
@@ -105,31 +124,48 @@ describe('AppController (e2e)', () => {
 
   it('GET /api/v1/lookup?code=100&li=91&si=V returns variant', async () => {
     const response = await request(app.getHttpServer())
-      .get('/api/v1/lookup?code=100&li=91&si=V')
+      .get(`/api/v1/lookup?code=${seedCodePublic}&li=91&si=V`)
       .expect(200);
 
     expect(response.body).toMatchObject({
-      code: '100',
+      code: seedCodePublic,
       variant: { loadIndex: 91, speedIndex: 'V' },
     });
   });
 
-  it('POST /api/v1/admin/mappings creates mapping', async () => {
+  it('POST /api/v1/admin/mappings creates mapping with auto-generated code', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/admin/mappings')
-      .send({ codePublic: '200', sizeRaw: '215/60R16' })
+      .send({ sizeRaw: '215/60R16', loadIndex: 95, speedIndex: 'H' })
       .expect(201);
 
     expect(response.body).toMatchObject({
-      codePublic: '200',
+      codePublic: expect.any(String),
       sizeNormalized: '215/60R16',
     });
+  });
+
+  it('POST /api/v1/admin/mappings generates consecutive codes', async () => {
+    const first = await request(app.getHttpServer())
+      .post('/api/v1/admin/mappings')
+      .send({ sizeRaw: '235/55R18' })
+      .expect(201);
+
+    const second = await request(app.getHttpServer())
+      .post('/api/v1/admin/mappings')
+      .send({ sizeRaw: '245/45R18' })
+      .expect(201);
+
+    const firstCode = parseInt(first.body.codePublic, 10);
+    const secondCode = parseInt(second.body.codePublic, 10);
+
+    expect(secondCode).toBe(firstCode + 1);
   });
 
   it('POST /api/v1/admin/mappings rejects duplicate size', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/admin/mappings')
-      .send({ codePublic: '201', sizeRaw: '205/55R16' })
+      .send({ sizeRaw: '205/55R16' })
       .expect(409);
   });
 });

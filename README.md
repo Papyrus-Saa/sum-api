@@ -25,6 +25,16 @@ The API supports:
 - Swagger documentation
 - Health monitoring endpoint
 
+## Current Capabilities
+
+- Rate limiting: 20 requests/10s burst + 60 requests/minute steady
+- Redis cache via Keyv (TTL 1 hour)
+- BullMQ background jobs for CSV imports
+- 1:1 code-size relationship with auto-generated, immutable public codes
+- Swagger docs at /api
+- Search analytics and logging (all lookups tracked for insights)
+- GDPR-compliant IP hashing
+
 ## Architecture
 
 - Modular monolith (NestJS)
@@ -37,11 +47,60 @@ The API supports:
   - repositories (database access)
 - Centralized error handling
 - Environment-based configuration
+- Request ID tracing and structured logging
+
+## Observability
+
+The system includes comprehensive observability features for monitoring and debugging:
+
+**Request Tracing:**
+- Every request gets a unique UUID (requestId)
+- RequestId is returned in response header: `x-request-id`
+- RequestId is included in error responses for correlation
+- Enables end-to-end request tracking across logs
+
+**Structured Logging:**
+- JSON-formatted logs with consistent structure
+- Request logs include: method, url, ip, userAgent, requestId
+- Response logs include: statusCode, duration, requestId
+- Error logs distinguish between 4xx (warnings) and 5xx (errors)
+- All logs are timestamped with ISO 8601 format
+
+**Log Examples:**
+```json
+// Incoming request
+{
+  "type": "request",
+  "requestId": "ea733e95-065f-411c-a981-d6d59cc2f0db",
+  "method": "GET",
+  "url": "/api/v1/lookup?code=100",
+  "ip": "::1",
+  "userAgent": "curl/8.7.1"
+}
+
+// Successful response
+{
+  "type": "response",
+  "requestId": "ea733e95-065f-411c-a981-d6d59cc2f0db",
+  "statusCode": 200,
+  "duration": "5ms"
+}
+
+// Exception
+{
+  "type": "exception",
+  "requestId": "82d1948b-40b1-482a-bff4-8feb10104fa5",
+  "method": "GET",
+  "path": "/health",
+  "statusCode": 404,
+  "message": "Cannot GET /health"
+}
+```
 
 ## Domain Rules
 
 - One tire size maps to exactly one public code (1:1).
-- A public code is immutable once assigned.
+- Public codes are automatically generated and immutable.
 - Tire variants (LI/SI) are optional extensions of a base tire size.
 - All size inputs must be normalized before lookup.
 - Speed index (SI) must be a single letter (e.g., V, W, H).
@@ -112,6 +171,54 @@ Features:
 
 Authentication is handled via JWT. All admin actions are validated and logged.
 
+## Analytics & Search Logging
+
+The system automatically logs all search queries for analytics and insights.
+
+**Features:**
+
+- **Automatic logging**: Every lookup is tracked (code, size, success/failure)
+- **Privacy-first**: IP addresses are hashed with SHA-256 (GDPR compliant)
+- **Real-time analytics**: Success rates, query types, trending searches
+- **Performance metrics**: Track which searches are most common
+
+**Analytics Endpoints:**
+
+```
+GET /api/v1/admin/analytics/overview?days=7
+GET /api/v1/admin/analytics/top-searches?limit=10&days=7
+```
+
+**Example Analytics Response:**
+
+```json
+{
+  "totalSearches": 1250,
+  "successfulSearches": 1100,
+  "failedSearches": 150,
+  "successRate": "88.00%",
+  "searchesByType": [
+    { "type": "code", "count": 650 },
+    { "type": "size", "count": 600 }
+  ],
+  "recentSearches": [
+    {
+      "query": "205/55R16",
+      "queryType": "size",
+      "resultFound": true,
+      "createdAt": "2026-02-16T14:30:00.000Z"
+    }
+  ]
+}
+```
+
+**Use Cases:**
+
+- Identify most searched tire sizes for inventory planning
+- Track search success rates to improve data coverage
+- Detect patterns in failed searches (missing tire codes)
+- Monitor API usage trends over time
+
 ## Endpoints
 
 Health:
@@ -154,7 +261,42 @@ Environment variables are validated at startup. Never commit secrets.
 - npm run build
 - npm run start:prod
 - npm run test
+- npm run test:e2e
 - npm run lint
+
+## Testing
+
+The project includes comprehensive e2e (end-to-end) integration tests:
+
+**Run all e2e tests:**
+```bash
+npm run test:e2e
+```
+
+**Run specific test suite:**
+```bash
+npm run test:e2e -- csv-import.e2e-spec.ts
+```
+
+**Test Coverage:**
+- 24 e2e tests (7 app + 17 CSV import)
+- CSV import validation (format, headers, data types)
+- API endpoint validation (lookup, admin operations)
+- Error handling and edge cases
+- Large file processing (100+ rows)
+
+**Test Environment:**
+- Uses in-memory mocks for Redis and BullMQ (no external dependencies)
+- Tests run sequentially to avoid database conflicts
+- Automatic database cleanup after each suite
+- 30s timeout for import processing tests
+
+Tests verify:
+- CSV parsing with csv-parse library
+- Transaction atomicity
+- Cache invalidation (both code and size lookups)
+- Auto-generated sequential tire codes
+- Duplicate detection and error handling
 
 ## Structure
 
@@ -172,7 +314,7 @@ The system is currently built as a modular monolith. Planned evolution if traffi
 
 - Extract search service if lookup traffic grows significantly
 - Extract import service for heavy CSV processing
-- Introduce Redis caching layer for high-frequency lookups
+- Expand caching and queueing as needed for scale
 - Horizontal scaling behind load balancer
 - Add search logs for usage analytics
 

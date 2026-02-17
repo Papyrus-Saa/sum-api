@@ -1,4 +1,4 @@
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsOptional, IsString, Matches, IsInt, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   TIRE_SIZE_FLEXIBLE_PATTERN,
@@ -6,15 +6,7 @@ import {
 } from '../../common/constants/validation';
 
 export class UpdateMappingDto {
-  @ApiProperty({
-    description: 'Public tire code identifier',
-    example: 'MICMPR2',
-    type: 'string',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  codePublic?: string;
+  // Note: codePublic is immutable and auto-generated, cannot be updated
 
   @ApiProperty({
     description:
@@ -29,4 +21,25 @@ export class UpdateMappingDto {
     message: TIRE_SIZE_DTO_ERROR_MESSAGE,
   })
   sizeRaw?: string;
+
+  @ApiProperty({
+    description: 'Load index (optional)',
+    example: 91,
+    type: 'integer',
+    required: false,
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  loadIndex?: number;
+
+  @ApiProperty({
+    description: 'Speed index (optional)',
+    example: 'V',
+    type: 'string',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  speedIndex?: string;
 }
