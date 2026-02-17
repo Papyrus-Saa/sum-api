@@ -1,4 +1,11 @@
-import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  BadRequestException,
+  Req,
+} from '@nestjs/common';
+import type { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -7,11 +14,15 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { LookupService } from '../services/lookup.service';
+import { SuggestionsService } from '../services/suggestions.service';
 
 @ApiTags('Lookup')
 @Controller('api/v1/lookup')
 export class LookupController {
-  constructor(private readonly lookupService: LookupService) {}
+  constructor(
+    private readonly lookupService: LookupService,
+    private readonly suggestionsService: SuggestionsService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -68,6 +79,7 @@ export class LookupController {
     @Query('size') size?: string,
     @Query('li') li?: string,
     @Query('si') si?: string,
+    @Req() req?: Request,
   ) {
     if (!code && !size) {
       throw new BadRequestException(
@@ -81,11 +93,62 @@ export class LookupController {
       );
     }
 
+    const ip = req?.ip || req?.socket?.remoteAddress;
+
     if (code) {
-      return this.lookupService.findByCode(code, { li, si });
+      return this.lookupService.findByCode(code, { li, si, ip });
     }
 
     // size is guaranteed to be defined here
-    return this.lookupService.findBySize(size!, { li, si });
+    return this.lookupService.findBySize(size!, { li, si, ip });
+  }
+
+  @Get('suggestions')
+  @ApiOperation({
+    summary: 'Get tire size suggestions (autocomplete)',
+    description:
+      'Returns tire size suggestions based on partial query. Combines popular searches with catalog sizes.',
+  })
+  @ApiQuery({
+    name: 'query',
+    required: true,
+    description: 'Partial tire size query (e.g., "205", "205/55", "205/55R")',
+    example: '205',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Maximum number of suggestions to return (default: 10)',
+    example: 10,
+  })
+  @ApiOkResponse({
+    description: 'List of tire size suggestions',
+    schema: {
+      example: [
+        { sizeNormalized: '205/55R16', searchCount: 42 },
+        { sizeNormalized: '205/60R15', searchCount: 28 },
+        { sizeNormalized: '205/50R17', searchCount: 15 },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - missing query parameter',
+  })
+  async getSuggestions(
+    @Query('query') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query) {
+      throw new BadRequestException('Query parameter is required');
+    }
+
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+      throw new BadRequestException('Limit must be between 1 and 50');
+    }
+
+    return this.suggestionsService.getSuggestions(query, parsedLimit);
   }
 }

@@ -3,9 +3,13 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { CatalogService } from '../../catalog/services/catalog.service';
 import { TireNormalizer } from '../../catalog/domain/tire-normalizer';
+import { SearchLogService } from '../../observability/services/search-log.service';
 
 @Injectable()
 export class LookupService {
@@ -14,13 +18,18 @@ export class LookupService {
   constructor(
     private readonly catalogService: CatalogService,
     private readonly tireNormalizer: TireNormalizer,
+    private readonly searchLogService: SearchLogService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   /**
    * Search by tire code (e.g., "100")
    * Returns: { code, sizeNormalized, sizeRaw, variants? }
    */
-  async findByCode(code: string, options?: { li?: string; si?: string }) {
+  async findByCode(
+    code: string,
+    options?: { li?: string; si?: string; ip?: string },
+  ) {
     this.logger.debug(
       `Lookup by code: code=${code}, li=${options?.li}, si=${options?.si}`,
     );
@@ -35,11 +44,25 @@ export class LookupService {
       throw new BadRequestException('"code" is required');
     }
 
+    const cacheKey = this.buildCodeCacheKey(resolvedCode, variant);
+    const cached = await this.cache.get<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for code lookup: ${cacheKey}`);
+      return cached;
+    }
+
     // Optimized: Fetch code and then size + variants in parallel
     const tireCode =
       await this.catalogService.getTireCodeByPublicCode(resolvedCode);
     if (!tireCode) {
       this.logger.warn(`Tire code not found: ${resolvedCode}`);
+      // Log failed search
+      void this.searchLogService.logSearch({
+        query: resolvedCode,
+        queryType: 'code',
+        resultFound: false,
+        ip: options?.ip,
+      });
       throw new NotFoundException(`Tire code "${resolvedCode}" not found`);
     }
     this.logger.debug(`Found tire code: ${resolvedCode}`);
@@ -67,7 +90,7 @@ export class LookupService {
         this.logger.log(
           `Lookup successful: code=${resolvedCode}, variant=${variant?.loadIndex}${variant?.speedIndex}`,
         );
-        return {
+        const response = {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
           sizeRaw: tireSize.sizeRaw,
@@ -76,33 +99,49 @@ export class LookupService {
             speedIndex: matched.speedIndex,
           },
         };
+        await this.cache.set(cacheKey, response, 60 * 60 * 1000);
+        return response;
       } else {
         this.logger.warn(
           `Variant not found: code=${resolvedCode}, variant=${variant?.loadIndex}${variant?.speedIndex}`,
         );
-        return {
+        const response = {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
           sizeRaw: tireSize.sizeRaw,
           warning: 'variant_not_found',
         };
+        await this.cache.set(cacheKey, response, 60 * 60 * 1000);
+        return response;
       }
     }
 
     this.logger.log(`Lookup successful: code=${resolvedCode}`);
-    return {
+    const response = {
       code: tireCode.codePublic,
       sizeNormalized: tireSize.sizeNormalized,
       sizeRaw: tireSize.sizeRaw,
       ...(variants && variants.length > 0 && { variants }),
     };
+    await this.cache.set(cacheKey, response, 60 * 60 * 1000);
+    // Log successful search
+    void this.searchLogService.logSearch({
+      query: resolvedCode,
+      queryType: 'code',
+      resultFound: true,
+      ip: options?.ip,
+    });
+    return response;
   }
 
   /**
    * Search by tire size (e.g., "205/55R16")
    * Returns: { code, sizeNormalized, sizeRaw, variants? }
    */
-  async findBySize(size: string, options?: { li?: string; si?: string }) {
+  async findBySize(
+    size: string,
+    options?: { li?: string; si?: string; ip?: string },
+  ) {
     this.logger.debug(
       `Lookup by size: size=${size}, li=${options?.li}, si=${options?.si}`,
     );
@@ -119,11 +158,25 @@ export class LookupService {
     const normalized = this.tireNormalizer.normalize(resolvedSize);
     this.logger.debug(`Normalized size: ${resolvedSize} -> ${normalized}`);
 
+    const cacheKey = this.buildSizeCacheKey(normalized, variant);
+    const cached = await this.cache.get<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for size lookup: ${cacheKey}`);
+      return cached;
+    }
+
     // Optimized: Fetch size and then code + variants in parallel
     const tireSize =
       await this.catalogService.getTireSizeByNormalized(normalized);
     if (!tireSize) {
       this.logger.warn(`Tire size not found: ${normalized}`);
+      // Log failed search
+      void this.searchLogService.logSearch({
+        query: normalized,
+        queryType: 'size',
+        resultFound: false,
+        ip: options?.ip,
+      });
       throw new NotFoundException(`Tire size "${normalized}" not found`);
     }
 
@@ -152,7 +205,7 @@ export class LookupService {
         this.logger.log(
           `Lookup successful: size=${normalized}, variant=${variant.loadIndex}${variant.speedIndex}`,
         );
-        return {
+        const response = {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
           sizeRaw: tireSize.sizeRaw,
@@ -161,26 +214,59 @@ export class LookupService {
             speedIndex: matched.speedIndex,
           },
         };
+        await this.cache.set(cacheKey, response, 60 * 60 * 1000);
+        return response;
       } else {
         this.logger.warn(
           `Variant not found: size=${normalized}, variant=${variant.loadIndex}${variant.speedIndex}`,
         );
-        return {
+        const response = {
           code: tireCode.codePublic,
           sizeNormalized: tireSize.sizeNormalized,
           sizeRaw: tireSize.sizeRaw,
           warning: 'variant_not_found',
         };
+        await this.cache.set(cacheKey, response, 60 * 60 * 1000);
+        return response;
       }
     }
 
     this.logger.log(`Lookup successful: size=${normalized}`);
-    return {
+    const response = {
       code: tireCode.codePublic,
       sizeNormalized: tireSize.sizeNormalized,
       sizeRaw: tireSize.sizeRaw,
       ...(variants && variants.length > 0 && { variants }),
     };
+    await this.cache.set(cacheKey, response, 60 * 60 * 1000);
+    // Log successful search
+    void this.searchLogService.logSearch({
+      query: normalized,
+      queryType: 'size',
+      resultFound: true,
+      ip: options?.ip,
+    });
+    return response;
+  }
+
+  private buildCodeCacheKey(
+    code: string,
+    variant: { loadIndex: number | null; speedIndex: string | null } | null,
+  ): string {
+    const variantKey = variant
+      ? `${variant.loadIndex ?? ''}${variant.speedIndex ?? ''}`
+      : 'base';
+    return `lookup:code:${code}:${variantKey}`;
+  }
+
+  private buildSizeCacheKey(
+    sizeNormalized: string,
+    variant: { loadIndex: number | null; speedIndex: string | null } | null,
+  ): string {
+    const variantKey = variant
+      ? `${variant.loadIndex ?? ''}${variant.speedIndex ?? ''}`
+      : 'base';
+    return `lookup:size:${sizeNormalized}:${variantKey}`;
   }
 
   private resolveVariantInput(

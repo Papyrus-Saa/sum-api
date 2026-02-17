@@ -156,8 +156,8 @@ describe('AppController (e2e)', () => {
       .send({ sizeRaw: '245/45R18' })
       .expect(201);
 
-    const firstCode = parseInt(first.body.codePublic, 10);
-    const secondCode = parseInt(second.body.codePublic, 10);
+    const firstCode = Number.parseInt(String(first.body.codePublic), 10);
+    const secondCode = Number.parseInt(String(second.body.codePublic), 10);
 
     expect(secondCode).toBe(firstCode + 1);
   });
