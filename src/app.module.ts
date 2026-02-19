@@ -14,6 +14,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { LookupModule } from './lookup/lookup.module';
 import { AdminModule } from './admin/admin.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ObservabilityModule } from './observability/observability.module';
     PrismaModule,
     CatalogModule,
     LookupModule,
+    AuthModule,
     AdminModule,
     ObservabilityModule,
   ],

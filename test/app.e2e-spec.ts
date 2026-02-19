@@ -7,11 +7,16 @@ import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
+import * as bcrypt from 'bcryptjs';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let seedCodePublic = '100';
+  let accessToken = '';
+
+  const adminEmail = 'saavedra.ramon.brand1@gmail.com';
+  const adminPassword = '!ABC4xx?.ABC';
 
   jest.setTimeout(20000);
 
@@ -34,6 +39,8 @@ describe('AppController (e2e)', () => {
 
     prisma = moduleFixture.get(PrismaService);
 
+    await prisma.adminRefreshToken.deleteMany();
+    await prisma.adminUser.deleteMany();
     await prisma.searchLog.deleteMany();
     await prisma.tireVariant.deleteMany();
     await prisma.tireCode.deleteMany();
@@ -67,10 +74,24 @@ describe('AppController (e2e)', () => {
         speedIndex: 'V',
       },
     });
+
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    await prisma.adminUser.create({
+      data: { email: adminEmail, passwordHash, isActive: true },
+    });
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/v1/admin/auth/login')
+      .send({ email: adminEmail, password: adminPassword })
+      .expect(200);
+
+    accessToken = loginResponse.body.accessToken as string;
   });
 
   afterAll(async () => {
     if (prisma) {
+      await prisma.adminRefreshToken.deleteMany();
+      await prisma.adminUser.deleteMany();
       await prisma.searchLog.deleteMany();
       await prisma.tireVariant.deleteMany();
       await prisma.tireCode.deleteMany();
@@ -136,6 +157,7 @@ describe('AppController (e2e)', () => {
   it('POST /api/v1/admin/mappings creates mapping with auto-generated code', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/admin/mappings')
+      .set('Authorization', `Bearer ${accessToken}`)
       .send({ sizeRaw: '215/60R16', loadIndex: 95, speedIndex: 'H' })
       .expect(201);
 
@@ -148,11 +170,13 @@ describe('AppController (e2e)', () => {
   it('POST /api/v1/admin/mappings generates consecutive codes', async () => {
     const first = await request(app.getHttpServer())
       .post('/api/v1/admin/mappings')
+      .set('Authorization', `Bearer ${accessToken}`)
       .send({ sizeRaw: '235/55R18' })
       .expect(201);
 
     const second = await request(app.getHttpServer())
       .post('/api/v1/admin/mappings')
+      .set('Authorization', `Bearer ${accessToken}`)
       .send({ sizeRaw: '245/45R18' })
       .expect(201);
 
@@ -165,6 +189,7 @@ describe('AppController (e2e)', () => {
   it('POST /api/v1/admin/mappings rejects duplicate size', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/admin/mappings')
+      .set('Authorization', `Bearer ${accessToken}`)
       .send({ sizeRaw: '205/55R16' })
       .expect(409);
   });

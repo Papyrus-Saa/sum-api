@@ -20,15 +20,20 @@ import {
   ApiCreatedResponse,
   ApiBody,
   ApiConsumes,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
 import { CreateMappingDto } from '../dto/create-mapping.dto';
 import { UpdateMappingDto } from '../dto/update-mapping.dto';
 import { CsvImportService } from '../../queues/services/csv-import.service';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('Admin')
 @Controller('api/v1/admin')
 @SkipThrottle()
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,

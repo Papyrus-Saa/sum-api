@@ -24,6 +24,14 @@ async function sum(): Promise<void> {
     .setTitle('Tire Code API')
     .setDescription('API for tire mapping, lookup, and management')
     .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+      'access-token',
+    )
     .addTag('Lookup', 'Public tire lookup endpoints')
     .addTag('Admin', 'Admin tire mapping management')
     .build();

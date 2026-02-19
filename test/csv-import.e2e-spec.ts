@@ -6,10 +6,15 @@ const request = require('supertest');
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
+import * as bcrypt from 'bcryptjs';
 
 describe('CSV Import (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let accessToken = '';
+
+  const adminEmail = 'saavedra.ramon.brand1@gmail.com';
+  const adminPassword = '!ABC4xx?.ABC';
 
   jest.setTimeout(30000); // Increased timeout for CSV processing
 
@@ -32,6 +37,8 @@ describe('CSV Import (e2e)', () => {
     prisma = moduleFixture.get(PrismaService);
 
     // Clean database
+    await prisma.adminRefreshToken.deleteMany();
+    await prisma.adminUser.deleteMany();
     await prisma.searchLog.deleteMany();
     await prisma.tireVariant.deleteMany();
     await prisma.tireCode.deleteMany();
@@ -41,10 +48,24 @@ describe('CSV Import (e2e)', () => {
     await prisma.$executeRawUnsafe(
       "SELECT setval('tire_code_seq', 100, false);",
     );
+
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    await prisma.adminUser.create({
+      data: { email: adminEmail, passwordHash, isActive: true },
+    });
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/v1/admin/auth/login')
+      .send({ email: adminEmail, password: adminPassword })
+      .expect(200);
+
+    accessToken = loginResponse.body.accessToken as string;
   });
 
   afterAll(async () => {
     if (prisma) {
+      await prisma.adminRefreshToken.deleteMany();
+      await prisma.adminUser.deleteMany();
       await prisma.searchLog.deleteMany();
       await prisma.tireVariant.deleteMany();
       await prisma.tireCode.deleteMany();
@@ -65,6 +86,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'tires.csv')
         .expect(201);
 
@@ -77,6 +99,7 @@ describe('CSV Import (e2e)', () => {
     it('should reject request without file', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(400);
 
       expect(response.body.error.message).toContain('No file uploaded');
@@ -87,6 +110,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(txtContent), 'tires.txt')
         .expect(400);
 
@@ -98,6 +122,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'empty.csv')
         .expect(400);
 
@@ -112,6 +137,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'invalid.csv')
         .expect(400);
 
@@ -128,6 +154,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'invalid.csv')
         .expect(400);
 
@@ -144,6 +171,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'partial.csv')
         .expect(201);
 
@@ -158,6 +186,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'whitespace.csv')
         .expect(201);
 
@@ -172,6 +201,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'quoted.csv')
         .expect(201);
 
@@ -187,6 +217,7 @@ describe('CSV Import (e2e)', () => {
 
       const uploadResponse = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'test.csv')
         .expect(201);
 
@@ -197,6 +228,7 @@ describe('CSV Import (e2e)', () => {
 
       const statusResponse = await request(app.getHttpServer())
         .get(`/api/v1/admin/import/${jobId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(statusResponse.body).toHaveProperty('id');
@@ -209,6 +241,7 @@ describe('CSV Import (e2e)', () => {
 
       await request(app.getHttpServer())
         .get(`/api/v1/admin/import/${fakeJobId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(400);
     });
   });
@@ -221,6 +254,7 @@ describe('CSV Import (e2e)', () => {
 
       const uploadResponse = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'process-test.csv')
         .expect(201);
 
@@ -234,6 +268,7 @@ describe('CSV Import (e2e)', () => {
       // Verify job can be queried
       const statusResponse = await request(app.getHttpServer())
         .get(`/api/v1/admin/import/${jobId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(statusResponse.body.id).toBe(jobId);
@@ -247,11 +282,13 @@ describe('CSV Import (e2e)', () => {
 
       const firstResponse = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'idempotent.csv')
         .expect(201);
 
       const secondResponse = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'idempotent.csv')
         .expect(201);
 
@@ -267,6 +304,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'invalid-load.csv')
         .expect(400);
 
@@ -285,6 +323,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'large.csv')
         .expect(201);
 
@@ -298,6 +337,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'case.csv')
         .expect(201);
 
@@ -314,6 +354,7 @@ describe('CSV Import (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/admin/import')
+        .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from(csvContent), 'empty-lines.csv')
         .expect(201);
 

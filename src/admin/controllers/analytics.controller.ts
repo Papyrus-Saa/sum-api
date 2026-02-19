@@ -1,11 +1,20 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
-import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { SearchLogService } from '../../observability/services/search-log.service';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('Admin')
 @Controller('api/v1/admin/analytics')
 @SkipThrottle()
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
 export class AnalyticsController {
   constructor(private readonly searchLogService: SearchLogService) {}
 
