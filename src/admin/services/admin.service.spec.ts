@@ -1,24 +1,51 @@
 import { AdminService } from './admin.service';
 import { TireNormalizer } from '../../catalog/domain/tire-normalizer';
 
+interface MockTireVariant {
+  loadIndex: number | null;
+  speedIndex: string | null;
+}
+
+interface MockTireSize {
+  sizeRaw: string;
+  sizeNormalized: string;
+  tireVariants: MockTireVariant[];
+}
+
+interface MockTireCode {
+  id: string;
+  codePublic: string;
+  tireSize: MockTireSize;
+}
+
+interface MockPrisma {
+  tireCode: {
+    findMany: jest.Mock<Promise<MockTireCode[]>>;
+  };
+}
+
+interface MockCache {
+  del: jest.Mock<Promise<void>>;
+}
+
 describe('AdminService', () => {
-  const makePrisma = () => ({
+  const makePrisma = (): MockPrisma => ({
     tireCode: {
-      findMany: jest.fn(),
+      findMany: jest.fn<Promise<MockTireCode[]>, []>(),
     },
   });
 
-  const makeCache = () => ({
-    del: jest.fn(),
+  const makeCache = (): MockCache => ({
+    del: jest.fn<Promise<void>, []>(),
   });
 
   it('returns mappings with optional variants', async () => {
     const prisma = makePrisma();
     const cache = makeCache();
     const service = new AdminService(
-      prisma as any,
+      prisma as unknown as never,
       new TireNormalizer(),
-      cache as any,
+      cache as unknown as never,
     );
 
     prisma.tireCode.findMany.mockResolvedValue([

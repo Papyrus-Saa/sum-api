@@ -2,50 +2,90 @@ import { BadRequestException } from '@nestjs/common';
 import { TireNormalizer } from '../../catalog/domain/tire-normalizer';
 import { LookupService } from './lookup.service';
 
-const makeCatalogService = () => ({
-  getTireCodeByPublicCode: jest.fn(),
-  getTireSizeById: jest.fn(),
-  getVariantsByTireSizeId: jest.fn(),
-  getTireSizeByNormalized: jest.fn(),
-  getTireCodeByTireSizeId: jest.fn(),
-});
+interface MockTireVariant {
+  loadIndex: number;
+  speedIndex: string;
+}
 
-const makeSearchLogService = () => ({
-  logSearch: jest.fn(),
-});
+interface MockTireSize {
+  id: string;
+  sizeRaw: string;
+  sizeNormalized: string;
+}
 
-const makePrisma = () => ({
+interface MockTireCode {
+  id: string;
+  codePublic: string;
+  tireSizeId: string;
+}
+
+interface MockCatalogService {
+  getTireCodeByPublicCode: jest.Mock<Promise<MockTireCode | null>, [string]>;
+  getTireSizeById: jest.Mock<Promise<MockTireSize | null>, [string]>;
+  getVariantsByTireSizeId: jest.Mock<Promise<MockTireVariant[]>, [string]>;
+  getTireSizeByNormalized: jest.Mock<Promise<MockTireSize | null>, [string]>;
+  getTireCodeByTireSizeId: jest.Mock<Promise<MockTireCode | null>, [string]>;
+}
+
+interface MockSearchLogService {
+  logSearch: jest.Mock<Promise<void>, [string, string, boolean]>;
+}
+
+interface MockPrisma {
   tireCode: {
-    findMany: jest.fn(),
+    findMany: jest.Mock<Promise<MockTireCode[]>, []>;
+  };
+}
+
+interface MockCache {
+  get: jest.Mock<Promise<string | null>, [string]>;
+  set: jest.Mock<Promise<void>, [string, string]>;
+}
+
+const makeCatalogService = (): MockCatalogService => ({
+  getTireCodeByPublicCode: jest.fn<Promise<MockTireCode | null>, [string]>(),
+  getTireSizeById: jest.fn<Promise<MockTireSize | null>, [string]>(),
+  getVariantsByTireSizeId: jest.fn<Promise<MockTireVariant[]>, [string]>(),
+  getTireSizeByNormalized: jest.fn<Promise<MockTireSize | null>, [string]>(),
+  getTireCodeByTireSizeId: jest.fn<Promise<MockTireCode | null>, [string]>(),
+});
+
+const makeSearchLogService = (): MockSearchLogService => ({
+  logSearch: jest.fn<Promise<void>, [string, string, boolean]>(),
+});
+
+const makePrisma = (): MockPrisma => ({
+  tireCode: {
+    findMany: jest.fn<Promise<MockTireCode[]>, []>(),
   },
 });
 
-const makeCache = () => ({
-  get: jest.fn().mockResolvedValue(null),
-  set: jest.fn(),
+const makeCache = (): MockCache => ({
+  get: jest.fn<Promise<string | null>, [string]>().mockResolvedValue(null),
+  set: jest.fn<Promise<void>, [string, string]>(),
 });
 
 describe('LookupService', () => {
-  const tireSize = {
+  const tireSize: MockTireSize = {
     id: 'size-1',
     sizeRaw: '205/55R16',
     sizeNormalized: '205/55R16',
   };
-  const tireCode = {
+  const tireCode: MockTireCode = {
     id: 'code-1',
     codePublic: '100',
     tireSizeId: 'size-1',
   };
-  const variants = [
+  const variants: MockTireVariant[] = [
     { loadIndex: 91, speedIndex: 'V' },
     { loadIndex: 94, speedIndex: 'W' },
   ];
 
-  let catalogService: ReturnType<typeof makeCatalogService>;
+  let catalogService: MockCatalogService;
   let lookupService: LookupService;
-  let searchLogService: ReturnType<typeof makeSearchLogService>;
-  let prisma: ReturnType<typeof makePrisma>;
-  let cache: ReturnType<typeof makeCache>;
+  let searchLogService: MockSearchLogService;
+  let prisma: MockPrisma;
+  let cache: MockCache;
 
   beforeEach(() => {
     catalogService = makeCatalogService();
@@ -53,13 +93,11 @@ describe('LookupService', () => {
     prisma = makePrisma();
     cache = makeCache();
     lookupService = new LookupService(
-      // Mock object for testing - type safety not applicable in test setup
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      catalogService as any,
+      catalogService as unknown as never,
       new TireNormalizer(),
-      searchLogService as any,
-      prisma as any,
-      cache as any,
+      searchLogService as unknown as never,
+      prisma as unknown as never,
+      cache as unknown as never,
     );
   });
 
