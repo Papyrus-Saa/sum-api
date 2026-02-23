@@ -51,12 +51,11 @@ export class LookupService {
       return cached;
     }
 
-    // Optimized: Fetch code and then size + variants in parallel
     const tireCode =
       await this.catalogService.getTireCodeByPublicCode(resolvedCode);
     if (!tireCode) {
       this.logger.warn(`Tire code not found: ${resolvedCode}`);
-      // Log failed search
+
       void this.searchLogService.logSearch({
         query: resolvedCode,
         queryType: 'code',
