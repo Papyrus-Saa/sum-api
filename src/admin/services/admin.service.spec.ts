@@ -1,5 +1,7 @@
 import { AdminService } from './admin.service';
+import type { Cache } from 'cache-manager';
 import { TireNormalizer } from '../../catalog/domain/tire-normalizer';
+import { PrismaService } from '../../prisma/prisma.service';
 
 interface MockTireVariant {
   loadIndex: number | null;
@@ -20,12 +22,12 @@ interface MockTireCode {
 
 interface MockPrisma {
   tireCode: {
-    findMany: jest.Mock<Promise<MockTireCode[]>>;
+    findMany: jest.Mock<Promise<MockTireCode[]>, []>;
   };
 }
 
 interface MockCache {
-  del: jest.Mock<Promise<void>>;
+  del: jest.Mock<Promise<void>, [string]>;
 }
 
 describe('AdminService', () => {
@@ -36,19 +38,16 @@ describe('AdminService', () => {
   });
 
   const makeCache = (): MockCache => ({
-    del: jest.fn<Promise<void>, []>(),
+    del: jest.fn<Promise<void>, [string]>(),
   });
 
   it('returns mappings with optional variants', async () => {
-    const prisma = makePrisma();
-    const cache = makeCache();
-    const service = new AdminService(
-      prisma as unknown as never,
-      new TireNormalizer(),
-      cache as unknown as never,
-    );
+    const prismaMock = makePrisma();
+    const prisma = prismaMock as unknown as PrismaService;
+    const cache = makeCache() as unknown as Cache;
+    const service = new AdminService(prisma, new TireNormalizer(), cache);
 
-    prisma.tireCode.findMany.mockResolvedValue([
+    prismaMock.tireCode.findMany.mockResolvedValue([
       {
         id: 'code-1',
         codePublic: '100',

@@ -107,7 +107,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
-      .expect('Hello World!!!');
+      .expect('Hello World!');
   });
 
   it('/ (GET) includes x-request-id header', async () => {

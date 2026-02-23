@@ -9,6 +9,27 @@ interface LogSearchParams {
   ip?: string;
 }
 
+export interface SearchAnalyticsOverview {
+  totalSearches: number;
+  successfulSearches: number;
+  failedSearches: number;
+  successRate: string;
+  searchesByType: Array<{ type: string; count: number }>;
+  recentSearches: Array<{
+    query: string;
+    queryType: string;
+    resultFound: boolean;
+    createdAt: Date;
+  }>;
+}
+
+export interface TopSearchItem {
+  query: string;
+  queryType: string;
+  resultFound: boolean;
+  count: number;
+}
+
 @Injectable()
 export class SearchLogService {
   private readonly logger = new Logger(SearchLogService.name);
@@ -50,7 +71,7 @@ export class SearchLogService {
     startDate?: Date;
     endDate?: Date;
     limit?: number;
-  }) {
+  }): Promise<SearchAnalyticsOverview> {
     const where = {
       ...(options?.startDate && { createdAt: { gte: options.startDate } }),
       ...(options?.endDate && {
@@ -112,7 +133,10 @@ export class SearchLogService {
   /**
    * Get most searched queries
    */
-  async getTopSearches(options?: { limit?: number; days?: number }) {
+  async getTopSearches(options?: {
+    limit?: number;
+    days?: number;
+  }): Promise<TopSearchItem[]> {
     const limit = options?.limit ?? 10;
     const days = options?.days ?? 7;
     const startDate = new Date();

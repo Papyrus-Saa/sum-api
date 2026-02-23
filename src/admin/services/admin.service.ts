@@ -9,8 +9,30 @@ import {
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import type { Prisma, TireCode, TireSize } from '@prisma/client';
 import { TireNormalizer } from '../../catalog/domain/tire-normalizer';
 import { PrismaService } from '../../prisma/prisma.service';
+
+export interface MappingVariant {
+  loadIndex?: number;
+  speedIndex?: string;
+}
+
+export interface MappingListItem {
+  id: string;
+  codePublic: string;
+  sizeRaw: string;
+  sizeNormalized: string;
+  variants: MappingVariant[];
+}
+
+type TireSizeWithCode = Prisma.TireSizeGetPayload<{
+  include: { tireCode: true };
+}>;
+
+type TireCodeWithSize = Prisma.TireCodeGetPayload<{
+  include: { tireSize: true };
+}>;
 
 @Injectable()
 export class AdminService {
@@ -47,7 +69,9 @@ export class AdminService {
     const sizeData = this.tireNormalizer.parseSizeComponents(sizeRaw);
 
     const { tireCode, tireSize } = await this.prisma.$transaction(
-      async (tx) => {
+      async (
+        tx: Prisma.TransactionClient,
+      ): Promise<{ tireCode: TireCode; tireSize: TireSizeWithCode }> => {
         // Check if size already exists (1:1 relationship)
         const existingSize = await tx.tireSize.findUnique({
           where: { sizeNormalized: sizeData.sizeNormalized },
@@ -64,7 +88,7 @@ export class AdminService {
         }
 
         // Create or use existing TireSize (include tireCode for consistent typing)
-        let tireSize = existingSize;
+        let tireSize: TireSizeWithCode | null = existingSize;
         if (!tireSize) {
           tireSize = await tx.tireSize.create({
             data: sizeData,
@@ -123,7 +147,7 @@ export class AdminService {
   /**
    * List all tire mappings with their sizes and optional variants
    */
-  async listMappings() {
+  async listMappings(): Promise<MappingListItem[]> {
     const mappings = await this.prisma.tireCode.findMany({
       orderBy: { codePublic: 'asc' },
       include: {
@@ -183,70 +207,78 @@ export class AdminService {
     }
 
     const { existing, updatedSize, previousSizeNormalized } =
-      await this.prisma.$transaction(async (tx) => {
-        const existing = await tx.tireCode.findUnique({
-          where: { id },
-          include: { tireSize: true },
-        });
-
-        if (!existing) {
-          this.logger.warn(`Mapping not found for update: ${id}`);
-          throw new NotFoundException(`Mapping "${id}" not found`);
-        }
-
-        let updatedSize = existing.tireSize;
-        const previousSizeNormalized = existing.tireSize.sizeNormalized;
-
-        if (input.sizeRaw?.trim()) {
-          const sizeData = this.tireNormalizer.parseSizeComponents(
-            input.sizeRaw,
-          );
-          const sizeConflict = await tx.tireSize.findUnique({
-            where: { sizeNormalized: sizeData.sizeNormalized },
+      await this.prisma.$transaction(
+        async (
+          tx: Prisma.TransactionClient,
+        ): Promise<{
+          existing: TireCodeWithSize;
+          updatedSize: TireSize;
+          previousSizeNormalized: string;
+        }> => {
+          const existing = await tx.tireCode.findUnique({
+            where: { id },
+            include: { tireSize: true },
           });
 
-          if (sizeConflict && sizeConflict.id !== existing.tireSizeId) {
-            this.logger.warn(
-              `Size conflict during update: ${sizeData.sizeNormalized}`,
-            );
-            throw new ConflictException(
-              `Tire size "${sizeData.sizeNormalized}" already exists`,
-            );
+          if (!existing) {
+            this.logger.warn(`Mapping not found for update: ${id}`);
+            throw new NotFoundException(`Mapping "${id}" not found`);
           }
 
-          this.logger.log(
-            `Size updated: id=${id}, newSize=${sizeData.sizeNormalized}`,
-          );
-          updatedSize = await tx.tireSize.update({
-            where: { id: existing.tireSizeId },
-            data: sizeData,
-          });
-        }
+          let updatedSize = existing.tireSize;
+          const previousSizeNormalized = existing.tireSize.sizeNormalized;
 
-        // Update or create variant if provided
-        if (input.loadIndex !== undefined && input.speedIndex) {
-          await tx.tireVariant.upsert({
-            where: {
-              tireSizeId_loadIndex_speedIndex: {
+          if (input.sizeRaw?.trim()) {
+            const sizeData = this.tireNormalizer.parseSizeComponents(
+              input.sizeRaw,
+            );
+            const sizeConflict = await tx.tireSize.findUnique({
+              where: { sizeNormalized: sizeData.sizeNormalized },
+            });
+
+            if (sizeConflict && sizeConflict.id !== existing.tireSizeId) {
+              this.logger.warn(
+                `Size conflict during update: ${sizeData.sizeNormalized}`,
+              );
+              throw new ConflictException(
+                `Tire size "${sizeData.sizeNormalized}" already exists`,
+              );
+            }
+
+            this.logger.log(
+              `Size updated: id=${id}, newSize=${sizeData.sizeNormalized}`,
+            );
+            updatedSize = await tx.tireSize.update({
+              where: { id: existing.tireSizeId },
+              data: sizeData,
+            });
+          }
+
+          // Update or create variant if provided
+          if (input.loadIndex !== undefined && input.speedIndex) {
+            await tx.tireVariant.upsert({
+              where: {
+                tireSizeId_loadIndex_speedIndex: {
+                  tireSizeId: existing.tireSizeId,
+                  loadIndex: input.loadIndex,
+                  speedIndex: input.speedIndex,
+                },
+              },
+              create: {
                 tireSizeId: existing.tireSizeId,
                 loadIndex: input.loadIndex,
                 speedIndex: input.speedIndex,
               },
-            },
-            create: {
-              tireSizeId: existing.tireSizeId,
-              loadIndex: input.loadIndex,
-              speedIndex: input.speedIndex,
-            },
-            update: {},
-          });
-          this.logger.log(
-            `Variant updated/created: ${input.loadIndex}${input.speedIndex}`,
-          );
-        }
+              update: {},
+            });
+            this.logger.log(
+              `Variant updated/created: ${input.loadIndex}${input.speedIndex}`,
+            );
+          }
 
-        return { existing, updatedSize, previousSizeNormalized };
-      });
+          return { existing, updatedSize, previousSizeNormalized };
+        },
+      );
 
     await this.invalidateLookupCache(
       existing.codePublic,

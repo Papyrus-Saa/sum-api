@@ -7,7 +7,10 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { SearchLogService } from '../../observability/services/search-log.service';
+import {
+  SearchLogService,
+  TopSearchItem,
+} from '../../observability/services/search-log.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('Admin')
@@ -106,7 +109,7 @@ export class AnalyticsController {
   async getTopSearches(
     @Query('limit') limit?: string,
     @Query('days') days?: string,
-  ) {
+  ): Promise<TopSearchItem[]> {
     const limitNum = limit ? parseInt(limit, 10) : 10;
     const daysNum = days ? parseInt(days, 10) : 7;
 

@@ -23,7 +23,7 @@ import {
   ApiConsumes,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { AdminService } from '../services/admin.service';
+import { AdminService, MappingListItem } from '../services/admin.service';
 import { CreateMappingDto } from '../dto/create-mapping.dto';
 import { UpdateMappingDto } from '../dto/update-mapping.dto';
 import { CsvImportService } from '../../queues/services/csv-import.service';
@@ -63,7 +63,7 @@ export class AdminController {
       ],
     },
   })
-  async listMappings() {
+  async listMappings(): Promise<MappingListItem[]> {
     return this.adminService.listMappings();
   }
 
