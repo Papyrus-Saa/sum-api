@@ -151,4 +151,30 @@ export class LookupController {
 
     return this.suggestionsService.getSuggestions(query, parsedLimit);
   }
+
+  @Get('mappings')
+  @ApiOperation({
+    summary: 'List public tire mappings',
+    description:
+      'Returns mappings for simple public UIs (size and code, with optional variants).',
+  })
+  @ApiOkResponse({
+    description: 'Mappings retrieved successfully',
+    schema: {
+      example: [
+        {
+          sizeNormalized: '265/70R17',
+          sizeRaw: '265/70R17',
+          codePublic: '107',
+          variants: [
+            { loadIndex: 91, speedIndex: 'V' },
+            { loadIndex: 94, speedIndex: 'W' },
+          ],
+        },
+      ],
+    },
+  })
+  async listMappingsPublic() {
+    return this.lookupService.listMappingsPublic();
+  }
 }

@@ -10,6 +10,21 @@ const makeCatalogService = () => ({
   getTireCodeByTireSizeId: jest.fn(),
 });
 
+const makeSearchLogService = () => ({
+  logSearch: jest.fn(),
+});
+
+const makePrisma = () => ({
+  tireCode: {
+    findMany: jest.fn(),
+  },
+});
+
+const makeCache = () => ({
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn(),
+});
+
 describe('LookupService', () => {
   const tireSize = {
     id: 'size-1',
@@ -28,14 +43,23 @@ describe('LookupService', () => {
 
   let catalogService: ReturnType<typeof makeCatalogService>;
   let lookupService: LookupService;
+  let searchLogService: ReturnType<typeof makeSearchLogService>;
+  let prisma: ReturnType<typeof makePrisma>;
+  let cache: ReturnType<typeof makeCache>;
 
   beforeEach(() => {
     catalogService = makeCatalogService();
+    searchLogService = makeSearchLogService();
+    prisma = makePrisma();
+    cache = makeCache();
     lookupService = new LookupService(
       // Mock object for testing - type safety not applicable in test setup
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       catalogService as any,
       new TireNormalizer(),
+      searchLogService as any,
+      prisma as any,
+      cache as any,
     );
   });
 
@@ -91,5 +115,29 @@ describe('LookupService', () => {
     await expect(
       lookupService.findBySize('205/55R16', { si: 'V' }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('lists public mappings with optional variants', async () => {
+    prisma.tireCode.findMany.mockResolvedValue([
+      {
+        codePublic: '107',
+        tireSize: {
+          sizeRaw: '265/70R17',
+          sizeNormalized: '265/70R17',
+          tireVariants: [{ loadIndex: 91, speedIndex: 'V' }],
+        },
+      },
+    ]);
+
+    const result = await lookupService.listMappingsPublic();
+
+    expect(result).toEqual([
+      {
+        codePublic: '107',
+        sizeRaw: '265/70R17',
+        sizeNormalized: '265/70R17',
+        variants: [{ loadIndex: 91, speedIndex: 'V' }],
+      },
+    ]);
   });
 });

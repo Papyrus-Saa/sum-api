@@ -8,6 +8,15 @@ import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 
 async function sum(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+
+  // CORS Configuration
+  app.enableCors({
+    origin: ['http://localhost:3001', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    credentials: true,
+  });
+
   app.use(requestIdMiddleware);
   app.useGlobalPipes(
     new ValidationPipe({

@@ -18,10 +18,12 @@ Example:
 
 The API supports:
 
+- **Public endpoints**: Lookup by code or size (no authentication required)
+- **Admin endpoints**: Management of mappings and analytics (JWT authentication required)
 - Lookup by public code
 - Lookup by tire size
 - Optional LI/SI (load index / speed index)
-- Admin management of mappings
+- Admin authentication system (login, refresh, logout)
 - Swagger documentation
 - Health monitoring endpoint
 
@@ -31,6 +33,7 @@ The API supports:
 - Redis cache via Keyv (TTL 1 hour)
 - BullMQ background jobs for CSV imports
 - 1:1 code-size relationship with auto-generated, immutable public codes
+- JWT authentication for admin users (access + refresh tokens)
 - Swagger docs at /api
 - Search analytics and logging (all lookups tracked for insights)
 - GDPR-compliant IP hashing
@@ -158,18 +161,90 @@ Swagger includes:
 
 ## Admin Module
 
-The system includes an authenticated admin module.
+The system includes a fully authenticated admin module for managing tire mappings and analytics.
 
-Features:
+### Authentication
+
+Admin users must authenticate to access protected endpoints. The authentication system uses JWT tokens with refresh token rotation.
+
+**Authentication Endpoints:**
+
+```bash
+# Login
+POST /api/v1/admin/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "your-password"
+}
+
+# Response:
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+  "expiresIn": 900,
+  "user": {
+    "id": "clx123abc",
+    "email": "admin@example.com"
+  }
+}
+
+# Refresh token
+POST /api/v1/admin/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+
+# Logout (requires Bearer token)
+POST /api/v1/admin/auth/logout
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Using Protected Endpoints:**
+
+All admin endpoints require the access token in the Authorization header:
+
+```bash
+curl -X GET http://localhost:8080/api/v1/admin/analytics/overview \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Security Features:**
+
+- ✅ **Password hashing** with bcrypt (cost factor 10)
+- ✅ **JWT tokens**: Access token (15 min) + Refresh token (7 days)
+- ✅ **Token rotation**: Refresh tokens are single-use and revoked after use
+- ✅ **Token revocation**: All tokens invalidated on logout
+- ✅ **Email normalization**: Lowercase and trimmed
+- ✅ **Active user check**: `isActive` flag prevents disabled accounts
+- ✅ **Last login tracking**: `lastLoginAt` timestamp updated on each login
+- ✅ **Token storage**: Refresh tokens stored as SHA-256 hashes in database
+
+**Token Lifecycle:**
+
+1. User logs in → receives access + refresh token
+2. Access token expires after 15 minutes
+3. Client uses refresh token to get new access token
+4. Old refresh token is revoked, new one issued
+5. On logout, all refresh tokens are revoked
+
+### Admin Features
+
+Once authenticated, admins can:
 
 - Create tire mappings
 - Update mappings
 - Delete mappings (optional soft delete)
 - Create tire variants (LI/SI)
+- View analytics and search logs
+- Import bulk data via CSV
 - Role-based access control (admin)
 - Validation on all inputs
 
-Authentication is handled via JWT. All admin actions are validated and logged.
+All admin actions are validated and logged.
 
 ## Analytics & Search Logging
 
@@ -221,17 +296,50 @@ GET /api/v1/admin/analytics/top-searches?limit=10&days=7
 
 ## Endpoints
 
-Health:
+### Public Endpoints (No Authentication Required)
 
+**Health Check:**
 ```
 GET /health
 ```
 
 Response:
-
 ```json
 { "status": "ok" }
 ```
+
+**Tire Lookup:**
+```
+GET /api/v1/lookup?code=100
+GET /api/v1/lookup?size=205/55R16
+GET /api/v1/lookup?size=205/55R16&li=91&si=V
+GET /api/v1/lookup/suggestions?q=205
+```
+
+### Admin Endpoints (JWT Authentication Required)
+
+**Authentication:**
+```
+POST /api/v1/admin/auth/login       # Authenticate and get tokens
+POST /api/v1/admin/auth/refresh     # Refresh access token
+POST /api/v1/admin/auth/logout      # Logout and revoke tokens
+```
+
+**Tire Management:**
+```
+POST   /api/v1/admin/tires          # Create tire mapping
+PUT    /api/v1/admin/tires/:id      # Update tire mapping
+DELETE /api/v1/admin/tires/:id      # Delete tire mapping
+POST   /api/v1/admin/import         # Bulk import via CSV
+```
+
+**Analytics:**
+```
+GET /api/v1/admin/analytics/overview      # Search statistics
+GET /api/v1/admin/analytics/top-searches  # Most searched terms
+```
+
+All admin endpoints require `Authorization: Bearer <token>` header.
 
 ## Requirements
 

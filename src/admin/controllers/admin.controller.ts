@@ -18,6 +18,7 @@ import {
   ApiParam,
   ApiResponse,
   ApiCreatedResponse,
+  ApiOkResponse,
   ApiBody,
   ApiConsumes,
   ApiBearerAuth,
@@ -39,6 +40,32 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly csvImportService: CsvImportService,
   ) {}
+
+  @Get('mappings')
+  @ApiOperation({
+    summary: 'List all tire mappings',
+    description: 'Returns all mappings with size data and optional variants.',
+  })
+  @ApiOkResponse({
+    description: 'Mappings retrieved successfully',
+    schema: {
+      example: [
+        {
+          id: 'uuid-v4',
+          codePublic: '107',
+          sizeRaw: '265/70R17',
+          sizeNormalized: '265/70R17',
+          variants: [
+            { loadIndex: 91, speedIndex: 'V' },
+            { loadIndex: 94, speedIndex: 'W' },
+          ],
+        },
+      ],
+    },
+  })
+  async listMappings() {
+    return this.adminService.listMappings();
+  }
 
   @Post('mappings')
   @ApiOperation({

@@ -121,6 +121,33 @@ export class AdminService {
   }
 
   /**
+   * List all tire mappings with their sizes and optional variants
+   */
+  async listMappings() {
+    const mappings = await this.prisma.tireCode.findMany({
+      orderBy: { codePublic: 'asc' },
+      include: {
+        tireSize: {
+          include: {
+            tireVariants: true,
+          },
+        },
+      },
+    });
+
+    return mappings.map((mapping) => ({
+      id: mapping.id,
+      codePublic: mapping.codePublic,
+      sizeRaw: mapping.tireSize.sizeRaw,
+      sizeNormalized: mapping.tireSize.sizeNormalized,
+      variants: mapping.tireSize.tireVariants.map((variant) => ({
+        loadIndex: variant.loadIndex ?? undefined,
+        speedIndex: variant.speedIndex ?? undefined,
+      })),
+    }));
+  }
+
+  /**
    * Update an existing tire mapping
    * NOTE: codePublic is immutable and auto-generated, cannot be updated
    * @param id - Mapping ID to update

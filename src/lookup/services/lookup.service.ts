@@ -10,6 +10,7 @@ import type { Cache } from 'cache-manager';
 import { CatalogService } from '../../catalog/services/catalog.service';
 import { TireNormalizer } from '../../catalog/domain/tire-normalizer';
 import { SearchLogService } from '../../observability/services/search-log.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class LookupService {
@@ -19,8 +20,35 @@ export class LookupService {
     private readonly catalogService: CatalogService,
     private readonly tireNormalizer: TireNormalizer,
     private readonly searchLogService: SearchLogService,
+    private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
+
+  /**
+   * Public list of mappings for simple UIs (sidebar, catalog list)
+   */
+  async listMappingsPublic() {
+    const mappings = await this.prisma.tireCode.findMany({
+      orderBy: { codePublic: 'asc' },
+      include: {
+        tireSize: {
+          include: {
+            tireVariants: true,
+          },
+        },
+      },
+    });
+
+    return mappings.map((mapping) => ({
+      codePublic: mapping.codePublic,
+      sizeNormalized: mapping.tireSize.sizeNormalized,
+      sizeRaw: mapping.tireSize.sizeRaw,
+      variants: mapping.tireSize.tireVariants.map((variant) => ({
+        loadIndex: variant.loadIndex ?? undefined,
+        speedIndex: variant.speedIndex ?? undefined,
+      })),
+    }));
+  }
 
   /**
    * Search by tire code (e.g., "100")
